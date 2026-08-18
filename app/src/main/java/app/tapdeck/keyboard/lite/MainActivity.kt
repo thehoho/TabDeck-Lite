@@ -238,12 +238,46 @@ class MainActivity : Activity() {
             }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }, blockParams(bottom = 22))
 
+        addKeyVibrationSetting()
+
         addInfoCard(
             "Discord-ready behavior",
             "Insert + send waits briefly for Discord's composer, then sends raw Enter. Insert only leaves the phrase in the text box for editing.",
             ACCENT,
         )
 
+    }
+
+    private fun addKeyVibrationSetting() {
+        screenContent.addView(card(BORDER).apply {
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            row.addView(LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(TextView(context).apply {
+                    text = "Key vibration"
+                    setTextColor(Color.WHITE)
+                    textSize = 17f
+                    typeface = Typeface.DEFAULT_BOLD
+                })
+                addView(
+                    bodyText("Optional vibration when a keyboard key is tapped. Off by default."),
+                    blockParams(top = 6),
+                )
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dp(12)
+            })
+            row.addView(Switch(context).apply {
+                contentDescription = "Vibrate when a TapDeck key is pressed"
+                isChecked = repository.isKeyVibrationEnabled()
+                setOnCheckedChangeListener { _, enabled ->
+                    repository.setKeyVibrationEnabled(enabled)
+                }
+            })
+            addView(row)
+        }, blockParams(bottom = 20))
     }
 
     private fun addSetupStep(
@@ -469,7 +503,7 @@ class MainActivity : Activity() {
 
     private fun addFooter() {
         screenContent.addView(TextView(this).apply {
-            text = "TapDeck Lite 1.0.3  •  20 keys  •  Offline"
+            text = "TapDeck Lite 1.0.4  •  20 keys  •  Offline"
             setTextColor(color("#657582"))
             textSize = 11f
             gravity = Gravity.CENTER

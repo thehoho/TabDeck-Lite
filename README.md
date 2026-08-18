@@ -51,6 +51,7 @@ TapDeck Lite is a keyboard, so trust matters. This repository makes its privacy 
 - Fifth utility row with **ABC**, Backspace, Settings, Android keyboard picker, and Enter.
 - Setup, Keys, and Privacy tabs in the companion app.
 - Empty first-run deck with no bundled commands.
+- Optional key vibration, off by default.
 - Dynamic clearance above Android gesture and navigation controls.
 - Completely offline with no ads, analytics, accounts, tracking, or upgrade prompts.
 

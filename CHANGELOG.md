@@ -2,6 +2,12 @@
 
 All notable TapDeck Lite changes are recorded here.
 
+## 1.0.4 — 2026-08-19
+
+- Added a Setup-tab preference to turn keyboard vibration on or off.
+- Made key vibration off by default, including for existing users upgrading from earlier versions.
+- Applied the preference to command keys and the full utility row.
+
 ## 1.0.3 — 2026-08-19
 
 - Increased the keyboard's bottom safe area from 20 dp to a 36 dp fallback.

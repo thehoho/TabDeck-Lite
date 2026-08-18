@@ -6,7 +6,7 @@ TapDeck Lite is an offline Android shortcut keyboard that lets a user save up to
 
 ## Saved commands
 
-The labels and commands you configure are stored only in TapDeck Lite's app-private storage on your device. They are used solely to display the keyboard and insert the selected command into the text field you are using. Cloud backup is disabled. Removing the app removes this local configuration under normal Android behavior.
+The labels, commands, and key-vibration preference you configure are stored only in TapDeck Lite's app-private storage on your device. They are used solely to display and operate the keyboard and insert the selected command into the text field you are using. Cloud backup is disabled. Removing the app removes this local configuration under normal Android behavior.
 
 ## Keyboard input
 
