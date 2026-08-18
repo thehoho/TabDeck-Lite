@@ -233,8 +233,8 @@ class TapDeckKeyboardService : InputMethodService() {
                 UtilityStyle.SEND -> rounded(SEND_KEY, ACCENT_DARK, 11)
                 UtilityStyle.NORMAL -> rounded(PANEL, BORDER, 11)
             }
-            setOnClickListener {
-                performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            setOnClickListener { view ->
+                performKeyboardHaptic(view)
                 action()
             }
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
@@ -251,7 +251,7 @@ class TapDeckKeyboardService : InputMethodService() {
         connection.finishComposingText()
         connection.commitText(phrase.message, 1)
         connection.endBatchEdit()
-        inputRoot?.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        inputRoot?.let(::performKeyboardHaptic)
 
         if (phrase.sendsImmediately) scheduleEnter()
     }
@@ -293,6 +293,12 @@ class TapDeckKeyboardService : InputMethodService() {
 
     private fun showKeyboardPicker() {
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+    }
+
+    private fun performKeyboardHaptic(view: View) {
+        if (repository.isKeyVibrationEnabled()) {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }
     }
 
     private fun cancelPendingSend() {

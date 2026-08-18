@@ -29,6 +29,15 @@ class PhraseRepository private constructor(context: Context) {
         preferences.edit().putString(CONFIG_KEY, PhraseConfigCodec.encode(next)).apply()
     }
 
+    fun isKeyVibrationEnabled(): Boolean = preferences.getBoolean(
+        KEY_VIBRATION_ENABLED_KEY,
+        false,
+    )
+
+    fun setKeyVibrationEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_VIBRATION_ENABLED_KEY, enabled).apply()
+    }
+
     fun observe(listener: (PhraseConfig) -> Unit): Subscription {
         listeners += listener
         listener(getConfig())
@@ -47,6 +56,7 @@ class PhraseRepository private constructor(context: Context) {
     companion object {
         private const val PREFERENCES_NAME = "tapdeck_lite_phrases"
         private const val CONFIG_KEY = "phrase_config_json"
+        private const val KEY_VIBRATION_ENABLED_KEY = "key_vibration_enabled"
 
         @Volatile
         private var instance: PhraseRepository? = null
