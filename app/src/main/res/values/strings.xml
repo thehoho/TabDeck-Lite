@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TapDeck Lite</string>
+    <string name="keyboard_name">TapDeck Lite</string>
+    <string name="subtype_name">One-tap phrases</string>
+</resources>
