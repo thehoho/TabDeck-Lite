@@ -16,7 +16,7 @@ Download the APK from the [latest GitHub Release](https://github.com/thehoho/Tab
 
 > Android shows an unknown-source warning for apps installed outside Google Play and a separate privacy warning when any third-party keyboard is enabled. These are normal platform warnings. TapDeck Lite requests zero Android permissions and has no Internet capability.
 
-The GitHub APK retains the signing identity used by existing testers so it installs as an update for them. It is published as a debug-signed community build.
+The GitHub APK is a non-debuggable release build. It retains the established GitHub-distribution signing identity so it installs as an update for existing users.
 
 ## How it works
 
@@ -24,7 +24,8 @@ The GitHub APK retains the signing identity used by existing testers so it insta
 2. Choose **Insert only** or **Insert + send** for each key.
 3. Open Discord and focus the message composer.
 4. Tap one key. TapDeck Lite handles only that selected command.
-5. Use **ABC** to return immediately to your normal typing keyboard.
+5. To reorder the deck, long press a configured key and drag it to another slot.
+6. Use **ABC** to return immediately to your normal typing keyboard.
 
 A key can hold a short command or a longer phrase up to the app's 4,000-character limit.
 
@@ -48,6 +49,7 @@ TapDeck Lite is a keyboard, so trust matters. This repository makes its privacy 
 - One tap inserts or sends the selected command.
 - Discord-tested send sequence: commit the command, wait 250 ms, then issue raw Enter.
 - Compact 5 × 4 command grid.
+- Long press and drag to reorder keys; intervening keys shift without losing configuration.
 - Fifth utility row with **ABC**, Backspace, Settings, Android keyboard picker, and Enter.
 - Setup, Keys, and Privacy tabs in the companion app.
 - Empty first-run deck with no bundled commands.
@@ -78,14 +80,14 @@ Requirements: JDK 17 and Android SDK 36.
 Windows:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+.\gradlew.bat testDebugUnitTest lintRelease assembleRelease
 ```
 
 macOS/Linux:
 
 ```bash
 chmod +x gradlew
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew testDebugUnitTest lintRelease assembleRelease
 ```
 
 

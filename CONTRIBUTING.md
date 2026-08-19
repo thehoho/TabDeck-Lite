@@ -10,7 +10,7 @@ Bug reports and focused pull requests are welcome.
 4. Run:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+.\gradlew.bat testDebugUnitTest lintRelease assembleRelease
 ```
 
 5. Explain user impact and phone-testing performed in the pull request.

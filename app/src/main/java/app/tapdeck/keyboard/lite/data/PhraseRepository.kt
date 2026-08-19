@@ -29,6 +29,11 @@ class PhraseRepository private constructor(context: Context) {
         preferences.edit().putString(CONFIG_KEY, PhraseConfigCodec.encode(next)).apply()
     }
 
+    fun moveKey(fromPosition: Int, toPosition: Int) {
+        val next = getConfig().move(fromPosition, toPosition)
+        preferences.edit().putString(CONFIG_KEY, PhraseConfigCodec.encode(next)).apply()
+    }
+
     fun isKeyVibrationEnabled(): Boolean = preferences.getBoolean(
         KEY_VIBRATION_ENABLED_KEY,
         false,

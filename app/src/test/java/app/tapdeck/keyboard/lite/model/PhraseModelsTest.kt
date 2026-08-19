@@ -55,4 +55,40 @@ class PhraseModelsTest {
         assertEquals("All good", updated.keys[3].message)
         assertTrue(updated.keys.filterIndexed { index, _ -> index != 3 }.all { !it.isConfigured })
     }
+
+    @Test
+    fun movingLastKeyToFirstShiftsTheOtherKeysRight() {
+        val source = configuredDeck()
+
+        val moved = source.move(fromPosition = 19, toPosition = 0)
+
+        assertEquals("Message 19", moved.keys[0].message)
+        assertEquals("Message 0", moved.keys[1].message)
+        assertEquals("Message 18", moved.keys[19].message)
+        assertEquals((0 until 20).toList(), moved.keys.map(PhraseKey::position))
+    }
+
+    @Test
+    fun movingFirstKeyForwardShiftsIntermediateKeysLeft() {
+        val source = configuredDeck()
+
+        val moved = source.move(fromPosition = 0, toPosition = 3)
+
+        assertEquals(
+            listOf("Message 1", "Message 2", "Message 3", "Message 0"),
+            moved.keys.take(4).map(PhraseKey::message),
+        )
+        assertEquals(PhraseAction.INSERT, moved.keys[3].action)
+    }
+
+    private fun configuredDeck() = PhraseConfig(
+        (0 until PhraseConfig.KEY_COUNT).map { position ->
+            PhraseKey(
+                position = position,
+                label = "Key $position",
+                message = "Message $position",
+                action = if (position == 0) PhraseAction.INSERT else PhraseAction.INSERT_AND_SEND,
+            )
+        },
+    )
 }
