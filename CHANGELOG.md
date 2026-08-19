@@ -2,6 +2,13 @@
 
 All notable TapDeck Lite changes are recorded here.
 
+## 1.0.5 — 2026-08-20
+
+- Added long-press drag-and-drop reordering directly on the keyboard.
+- Moving a key shifts the intervening slots while preserving every label, message, and send mode.
+- Changed the downloadable artifact to a non-debuggable release APK named `TapDeck-Lite-1.0.5.apk`.
+- Preserved the existing GitHub-distribution signing identity for in-place updates.
+
 ## 1.0.4 — 2026-08-19
 
 - Added a Setup-tab preference to turn keyboard vibration on or off.

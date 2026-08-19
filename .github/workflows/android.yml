@@ -31,7 +31,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Test, lint, and assemble
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+        run: ./gradlew testDebugUnitTest lintRelease assembleRelease
 
       - name: Upload verification reports
         if: always()
@@ -41,4 +41,4 @@ jobs:
           if-no-files-found: ignore
           path: |
             app/build/reports/tests/
-            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-release.html

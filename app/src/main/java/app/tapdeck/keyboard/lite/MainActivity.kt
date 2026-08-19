@@ -318,7 +318,7 @@ class MainActivity : Activity() {
         val configuredCount = config.keys.count(PhraseKey::isConfigured)
         addSectionTitle(
             "Your 20 keys",
-            "$configuredCount configured. Tap a card to set its label, message, and action.",
+            "$configuredCount configured. Tap a card to edit it. On the keyboard, long press and drag a configured key to reorder the deck.",
         )
         screenContent.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -503,7 +503,7 @@ class MainActivity : Activity() {
 
     private fun addFooter() {
         screenContent.addView(TextView(this).apply {
-            text = "TapDeck Lite 1.0.4  •  20 keys  •  Offline"
+            text = "TapDeck Lite 1.0.5  •  20 keys  •  Offline"
             setTextColor(color("#657582"))
             textSize = 11f
             gravity = Gravity.CENTER

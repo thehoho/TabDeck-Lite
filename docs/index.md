@@ -2,7 +2,7 @@
 
 ## One tap. One command.
 
-TapDeck Lite is a compact Android shortcut keyboard for command-driven Discord chats and bots such as OwO. Save up to 20 commands, then tap one key to insert or send the selected command.
+TapDeck Lite is a compact Android shortcut keyboard for command-driven Discord chats and bots such as OwO. Save up to 20 commands, tap one key to insert or send it, and long press and drag a configured key to reorder the deck.
 
 It is completely offline, requests no Android permissions, and contains no ads, analytics, or tracking.
 

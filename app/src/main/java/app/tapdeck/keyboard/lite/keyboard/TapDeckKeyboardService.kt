@@ -1,6 +1,7 @@
 package app.tapdeck.keyboard.lite.keyboard
 
 import android.annotation.SuppressLint
+import android.content.ClipData
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -10,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
+import android.view.DragEvent
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
@@ -148,8 +150,8 @@ class TapDeckKeyboardService : InputMethodService() {
         }
         contentDescription = when {
             !configured -> "Key ${phrase.position + 1}, empty"
-            phrase.sendsImmediately -> "Key ${phrase.position + 1}, ${phrase.displayLabel}, insert and send"
-            else -> "Key ${phrase.position + 1}, ${phrase.displayLabel}, insert only"
+            phrase.sendsImmediately -> "Key ${phrase.position + 1}, ${phrase.displayLabel}, insert and send; long press and drag to reorder"
+            else -> "Key ${phrase.position + 1}, ${phrase.displayLabel}, insert only; long press and drag to reorder"
         }
         isAllCaps = false
         textSize = 10.5f
@@ -166,9 +168,70 @@ class TapDeckKeyboardService : InputMethodService() {
         setPadding(dp(2), 0, dp(2), 0)
         stateListAnimator = null
         background = keyBackground(phrase)
-        isEnabled = configured
-        alpha = if (configured) 1f else 0.78f
+        isEnabled = true
+        isHapticFeedbackEnabled = repository.isKeyVibrationEnabled()
+        alpha = if (configured) 1f else EMPTY_KEY_ALPHA
         setOnClickListener { runPhrase(phrase) }
+        if (configured) {
+            setOnLongClickListener { view ->
+                startPhraseDrag(view, phrase.position)
+                true
+            }
+        }
+        setOnDragListener { view, event ->
+            handlePhraseDrag(view, phrase, event)
+        }
+    }
+
+    private fun startPhraseDrag(view: View, fromPosition: Int): Boolean {
+        if (pendingSend != null) return false
+        val dragData = ClipData.newPlainText("TapDeck key", "")
+        return view.startDragAndDrop(
+            dragData,
+            View.DragShadowBuilder(view),
+            PhraseDragState(fromPosition),
+            0,
+        )
+    }
+
+    private fun handlePhraseDrag(target: View, targetKey: PhraseKey, event: DragEvent): Boolean {
+        val state = event.localState as? PhraseDragState ?: return false
+        val isDifferentTarget = state.fromPosition != targetKey.position
+        return when (event.action) {
+            DragEvent.ACTION_DRAG_STARTED -> state.fromPosition in 0 until PhraseConfig.KEY_COUNT
+            DragEvent.ACTION_DRAG_ENTERED -> {
+                if (isDifferentTarget) {
+                    target.alpha = DROP_TARGET_ALPHA
+                    target.scaleX = DROP_TARGET_SCALE
+                    target.scaleY = DROP_TARGET_SCALE
+                }
+                true
+            }
+            DragEvent.ACTION_DRAG_EXITED -> {
+                restorePhraseKeyVisual(target, targetKey)
+                true
+            }
+            DragEvent.ACTION_DROP -> {
+                restorePhraseKeyVisual(target, targetKey)
+                if (isDifferentTarget) {
+                    performKeyboardHaptic(target)
+                    target.announceForAccessibility("Moved to key ${targetKey.position + 1}")
+                    repository.moveKey(state.fromPosition, targetKey.position)
+                }
+                true
+            }
+            DragEvent.ACTION_DRAG_ENDED -> {
+                restorePhraseKeyVisual(target, targetKey)
+                true
+            }
+            else -> true
+        }
+    }
+
+    private fun restorePhraseKeyVisual(view: View, phrase: PhraseKey) {
+        view.alpha = if (phrase.isConfigured) 1f else EMPTY_KEY_ALPHA
+        view.scaleX = 1f
+        view.scaleY = 1f
     }
 
     private fun createUtilityRow(): View = LinearLayout(this).apply {
@@ -355,6 +418,8 @@ class TapDeckKeyboardService : InputMethodService() {
         SEND,
     }
 
+    private data class PhraseDragState(val fromPosition: Int)
+
     companion object {
         private const val BACKGROUND = "#0B1118"
         private const val PANEL = "#111C27"
@@ -366,5 +431,8 @@ class TapDeckKeyboardService : InputMethodService() {
         private const val ACCENT_DARK = "#4ABF98"
         private const val WARM = "#F4B860"
         private const val MUTED = "#9DAEBC"
+        private const val EMPTY_KEY_ALPHA = 0.78f
+        private const val DROP_TARGET_ALPHA = 0.58f
+        private const val DROP_TARGET_SCALE = 0.94f
     }
 }

@@ -46,6 +46,20 @@ data class PhraseConfig(
         ).normalized()
     }
 
+    fun move(fromPosition: Int, toPosition: Int): PhraseConfig {
+        if (fromPosition !in 0 until KEY_COUNT || toPosition !in 0 until KEY_COUNT) {
+            return normalized()
+        }
+        val reordered = normalized().keys.toMutableList()
+        if (fromPosition != toPosition) {
+            val moving = reordered.removeAt(fromPosition)
+            reordered.add(toPosition, moving)
+        }
+        return PhraseConfig(
+            reordered.mapIndexed { position, key -> key.copy(position = position) },
+        ).normalized()
+    }
+
     companion object {
         const val KEY_COUNT = 20
         const val MAX_LABEL_LENGTH = 30
