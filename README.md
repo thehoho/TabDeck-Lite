@@ -1,7 +1,7 @@
 # TapDeck Lite
 
-[![Android verification](https://github.com/thehoho/TabDeck-Lite/actions/workflows/android.yml/badge.svg)](https://github.com/thehoho/TabDeck-Lite/actions/workflows/android.yml)
-[![Latest release](https://img.shields.io/github/v/release/thehoho/TabDeck-Lite)](https://github.com/thehoho/TabDeck-Lite/releases/latest)
+[![Android verification](https://github.com/thehoho/TapDeck-Lite/actions/workflows/android.yml/badge.svg)](https://github.com/thehoho/TapDeck-Lite/actions/workflows/android.yml)
+[![Latest release](https://img.shields.io/github/v/release/thehoho/TapDeck-Lite)](https://github.com/thehoho/TapDeck-Lite/releases/latest)
 [![Permissions: none](https://img.shields.io/badge/Android_permissions-none-70E1B5)](app/src/main/AndroidManifest.xml)
 
 ## One tap. One command.
@@ -12,7 +12,7 @@ Whether a command is short or long, every saved key keeps it consistent and read
 
 ## Download
 
-Download the APK from the [latest GitHub Release](https://github.com/thehoho/TabDeck-Lite/releases/latest). The release includes a SHA-256 checksum so the downloaded file can be verified.
+Download the APK from the [latest GitHub Release](https://github.com/thehoho/TapDeck-Lite/releases/latest). The release includes a SHA-256 checksum so the downloaded file can be verified.
 
 > Android shows an unknown-source warning for apps installed outside Google Play and a separate privacy warning when any third-party keyboard is enabled. These are normal platform warnings. TapDeck Lite requests zero Android permissions and has no Internet capability.
 
@@ -59,7 +59,7 @@ TapDeck Lite is a keyboard, so trust matters. This repository makes its privacy 
 
 ## Install and set up
 
-1. Download the APK from [Releases](https://github.com/thehoho/TabDeck-Lite/releases/latest).
+1. Download the APK from [Releases](https://github.com/thehoho/TapDeck-Lite/releases/latest).
 2. Allow installation from the browser or file manager Android identifies.
 3. Open TapDeck Lite and use the **Setup** tab.
 4. Tap **Enable keyboard** and enable TapDeck Lite in Android settings.
@@ -93,9 +93,9 @@ chmod +x gradlew
 
 ## Support
 
-- [Report a bug](https://github.com/thehoho/TabDeck-Lite/issues)
-- [Report a vulnerability privately](https://github.com/thehoho/TabDeck-Lite/security/advisories/new)
-- [Read the hosted privacy policy](https://thehoho.github.io/TabDeck-Lite/privacy)
+- [Report a bug](https://github.com/thehoho/TapDeck-Lite/issues)
+- [Report a vulnerability privately](https://github.com/thehoho/TapDeck-Lite/security/advisories/new)
+- [Read the hosted privacy policy](https://thehoho.github.io/TapDeck-Lite/privacy)
 
 ## License
 
