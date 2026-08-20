@@ -37,4 +37,4 @@ Material changes will be reflected here and in the app's release notes with a re
 
 ## Contact
 
-For privacy questions, open a [GitHub issue](https://github.com/thehoho/TabDeck-Lite/issues). Do not include saved commands or other private message content.
+For privacy questions, open a [GitHub issue](https://github.com/thehoho/TapDeck-Lite/issues). Do not include saved commands or other private message content.
