@@ -3,30 +3,37 @@ package app.tapdeck.keyboard.lite
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputFilter
 import android.text.InputType
+import android.view.DragEvent
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.LinearLayout
+import android.widget.NumberPicker
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import app.tapdeck.keyboard.lite.data.PhraseRepository
+import app.tapdeck.keyboard.lite.keyboard.KeyboardLayoutSpec
 import app.tapdeck.keyboard.lite.keyboard.TapDeckKeyboardService
+import app.tapdeck.keyboard.lite.model.DeckLayout
 import app.tapdeck.keyboard.lite.model.PhraseAction
 import app.tapdeck.keyboard.lite.model.PhraseConfig
 import app.tapdeck.keyboard.lite.model.PhraseKey
@@ -36,9 +43,11 @@ class MainActivity : Activity() {
     private lateinit var repository: PhraseRepository
     private lateinit var screenContent: LinearLayout
     private lateinit var tabRow: LinearLayout
+    private lateinit var contentScroll: ScrollView
     private var subscription: PhraseRepository.Subscription? = null
     private var latestConfig = PhraseConfig.empty()
     private var currentTab = Tab.SETUP
+    private var editorPage = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +63,7 @@ class MainActivity : Activity() {
             setBackgroundColor(color(BACKGROUND))
             addView(createHeader())
         }
+        applyTopSafeArea(root)
         tabRow = createTabs()
         root.addView(tabRow, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -68,7 +78,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(44))
         }
-        root.addView(ScrollView(this).apply {
+        contentScroll = ScrollView(this).apply {
             isFillViewport = true
             clipToPadding = false
             addView(
@@ -78,13 +88,19 @@ class MainActivity : Activity() {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                 ),
             )
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+        root.addView(contentScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
+        root.requestApplyInsets()
+        latestConfig = repository.getConfig()
+        renderCurrentTab()
 
         subscription = repository.observe { config ->
             runOnUiThread {
-                latestConfig = config
-                renderCurrentTab()
+                if (config != latestConfig) {
+                    latestConfig = config
+                    renderCurrentTab()
+                }
             }
         }
     }
@@ -100,6 +116,26 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         subscription?.cancel()
         super.onDestroy()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun applyTopSafeArea(root: View) {
+        val designedGap = dp(TOP_SYSTEM_BAR_GAP_DP)
+        root.setPadding(0, designedGap, 0, 0)
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val statusBarInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.statusBars()).top
+            } else {
+                insets.systemWindowInsetTop
+            }
+            view.setPadding(
+                0,
+                statusBarInset + designedGap,
+                0,
+                0,
+            )
+            insets
+        }
     }
 
     private fun createHeader(): View = LinearLayout(this).apply {
@@ -185,7 +221,7 @@ class MainActivity : Activity() {
                 typeface = Typeface.DEFAULT_BOLD
             })
             addView(bodyText(when {
-                status.selected -> "TapDeck Lite is your current keyboard. Open Discord or any text field to see your 20 keys."
+                status.selected -> "TapDeck Lite is your current keyboard. Open Discord or any text field to use your command pages."
                 status.enabled -> "Android has enabled TapDeck Lite. Choose it once from the keyboard list."
                 else -> "Android asks you to approve every downloaded keyboard. TapDeck Lite cannot enable itself."
             }), blockParams(top = 8, bottom = 2))
@@ -239,6 +275,7 @@ class MainActivity : Activity() {
         }, blockParams(bottom = 22))
 
         addKeyVibrationSetting()
+        addPageSwipeSetting()
 
         addInfoCard(
             "Discord-ready behavior",
@@ -280,6 +317,45 @@ class MainActivity : Activity() {
         }, blockParams(bottom = 20))
     }
 
+    private fun addPageSwipeSetting() {
+        screenContent.addView(card(BORDER).apply {
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            row.addView(LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(TextView(context).apply {
+                    text = "Swipe between pages"
+                    setTextColor(Color.WHITE)
+                    textSize = 17f
+                    typeface = Typeface.DEFAULT_BOLD
+                })
+                addView(
+                    bodyText(
+                        "Off by default. When enabled, horizontal swipes switch command pages and Enter stays available. When off, Page 2 uses a P1/P2 switch key.",
+                    ),
+                    blockParams(top = 6),
+                )
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dp(12)
+            })
+            row.addView(Switch(context).apply {
+                contentDescription = "Swipe horizontally between TapDeck command pages"
+                isChecked = repository.isPageSwipeEnabled()
+                setOnCheckedChangeListener { _, enabled ->
+                    repository.setPageSwipeEnabled(enabled)
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (enabled) "Page swiping enabled" else "Page switch key enabled",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            })
+            addView(row)
+        }, blockParams(bottom = 20))
+    }
+
     private fun addSetupStep(
         number: String,
         title: String,
@@ -315,11 +391,14 @@ class MainActivity : Activity() {
 
     private fun addKeysTab() {
         val config = latestConfig.normalized()
-        val configuredCount = config.keys.count(PhraseKey::isConfigured)
+        val pageKeys = config.keysForPage(editorPage)
+        val configuredCount = pageKeys.count(PhraseKey::isConfigured)
+        val totalConfigured = config.keys.count(PhraseKey::isConfigured)
         addSectionTitle(
-            "Your 20 keys",
-            "$configuredCount configured. Tap a card to edit it. On the keyboard, long press and drag a configured key to reorder the deck.",
+            "Page ${editorPage + 1} · 20 keys",
+            "$configuredCount configured on this page, $totalConfigured across both pages. Tap to edit, or long press and drag onto another slot to swap.",
         )
+        addKeyPageSelector(config)
         screenContent.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -329,14 +408,16 @@ class MainActivity : Activity() {
             addView(bodyText("Insert only"), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(7) })
         }, blockParams(bottom = 16))
 
+        addKeyboardLayoutSetting()
+
         val grid = GridLayout(this).apply {
             columnCount = 2
             rowCount = 10
             alignmentMode = GridLayout.ALIGN_BOUNDS
         }
-        config.keys.forEach { phrase ->
-            val row = phrase.position / 2
-            val column = phrase.position % 2
+        pageKeys.forEachIndexed { pagePosition, phrase ->
+            val row = pagePosition / 2
+            val column = pagePosition % 2
             grid.addView(editorKey(phrase), GridLayout.LayoutParams(
                 GridLayout.spec(row, 1f),
                 GridLayout.spec(column, 1f),
@@ -348,17 +429,163 @@ class MainActivity : Activity() {
         }
         screenContent.addView(grid, blockParams(bottom = 20))
         addInfoCard(
-            "Kept intentionally simple",
-            "One deck of 20 command keys, with no accounts, advertisements, tracking, or distracting extras.",
+            "Two pages, one simple deck",
+            "Save up to 40 command keys across two pages, with no accounts, advertisements, tracking, or upgrade prompts.",
             BORDER,
         )
     }
 
+    private fun addKeyPageSelector(config: PhraseConfig) {
+        screenContent.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
+            clipChildren = false
+            clipToPadding = false
+            repeat(PhraseConfig.PAGE_COUNT) { pageIndex ->
+                val active = pageIndex == editorPage
+                val count = config.keysForPage(pageIndex).count(PhraseKey::isConfigured)
+                addView(Button(context).apply {
+                    text = "Page ${pageIndex + 1}  ·  $count saved"
+                    isAllCaps = false
+                    textSize = 12f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(if (active) color(BACKGROUND) else Color.WHITE)
+                    stateListAnimator = null
+                    background = rounded(
+                        if (active) ACCENT else EMPTY,
+                        if (active) ACCENT else BORDER,
+                        11,
+                    )
+                    setOnClickListener {
+                        if (editorPage != pageIndex) {
+                            editorPage = pageIndex
+                            renderCurrentTab()
+                            contentScroll.post { contentScroll.scrollTo(0, 0) }
+                        }
+                    }
+                }, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                    setMargins(dp(3), dp(2), dp(3), dp(14))
+                })
+            }
+        }, blockParams(top = 8, bottom = 2))
+    }
+
+    private fun addKeyboardLayoutSetting() {
+        val layout = repository.getDeckLayout()
+        val visibility = if (layout.configuredOnly) "Configured keys only" else "All 20 keys per page"
+        val columns = if (layout.keysPerRow == 1) {
+            "1 key per row"
+        } else {
+            "${layout.keysPerRow} keys per row"
+        }
+        screenContent.addView(card(BORDER).apply {
+            addView(TextView(context).apply {
+                text = "Keyboard layout"
+                setTextColor(Color.WHITE)
+                textSize = 17f
+                typeface = Typeface.DEFAULT_BOLD
+            })
+            addView(
+                bodyText("$visibility  •  $columns"),
+                blockParams(top = 6, bottom = 12),
+            )
+            addView(actionButton("Customize layout", false, ::showKeyboardLayoutDialog))
+        }, blockParams(bottom = 16))
+    }
+
+    private fun showKeyboardLayoutDialog() {
+        val current = repository.getDeckLayout()
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(6), dp(20), 0)
+        }
+        val configuredOnlySwitch = Switch(this).apply {
+            text = "Show configured keys only"
+            isChecked = current.configuredOnly
+            setPadding(0, dp(6), 0, dp(12))
+        }
+        val picker = NumberPicker(this).apply {
+            minValue = DeckLayout.MIN_KEYS_PER_ROW
+            maxValue = DeckLayout.MAX_KEYS_PER_ROW
+            value = current.keysPerRow
+            wrapSelectorWheel = false
+            displayedValues = arrayOf(
+                "1 — vertical",
+                "2 per row",
+                "3 per row",
+                "4 per row",
+                "5 — widest",
+            )
+            contentDescription = "Buttons per row"
+        }
+        val preview = TextView(this).apply {
+            setTextColor(color(ACCENT_DARK))
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, dp(10))
+        }
+        fun updatePreview() {
+            val keyCount = if (configuredOnlySwitch.isChecked) {
+                latestConfig.keysForPage(editorPage).count(PhraseKey::isConfigured)
+            } else {
+                PhraseConfig.KEYS_PER_PAGE
+            }
+            if (keyCount == 0) {
+                preview.text = "No configured keys — the keyboard will show an empty state."
+                return
+            }
+            val columns = picker.value
+            val rows = KeyboardLayoutSpec.rowCount(keyCount, columns)
+            preview.text = when {
+                columns == 1 -> "Vertical layout  •  1 column × $rows rows"
+                rows == 1 -> "Horizontal layout  •  $columns columns × 1 row"
+                else -> "Grid layout  •  $columns columns × $rows rows"
+            }
+        }
+        picker.setOnValueChangedListener { _, _, _ -> updatePreview() }
+        configuredOnlySwitch.setOnCheckedChangeListener { _, _ -> updatePreview() }
+        updatePreview()
+        layout.addView(configuredOnlySwitch)
+        layout.addView(TextView(this).apply {
+            text = "Buttons per row (layout width)"
+            setTextColor(color("#52616E"))
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        layout.addView(
+            picker,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(130)),
+        )
+        layout.addView(preview)
+        layout.addView(TextView(this).apply {
+            text = "Every shape is supported: 1 per row creates a vertical list; matching the configured-key count creates one horizontal row; 4 per row gives a 4 × 5 grid for all 20 keys; and 5 per row gives 5 × 4. Longer grids scroll without increasing keyboard height."
+            setTextColor(color("#52616E"))
+            textSize = 12f
+        })
+
+        AlertDialog.Builder(this)
+            .setTitle("Keyboard layout")
+            .setView(layout)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Apply") { _, _ ->
+                repository.setDeckLayout(
+                    DeckLayout(
+                        keysPerRow = picker.value,
+                        configuredOnly = configuredOnlySwitch.isChecked,
+                    ),
+                )
+                renderCurrentTab()
+                Toast.makeText(this, "Keyboard layout updated", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
     private fun editorKey(phrase: PhraseKey): Button = Button(this).apply {
         text = when {
-            !phrase.isConfigured -> "${phrase.position + 1}\nSet up\nEmpty"
-            phrase.sendsImmediately -> "${phrase.position + 1}\n${phrase.displayLabel}\nInsert + send"
-            else -> "${phrase.position + 1}\n${phrase.displayLabel}\nInsert only"
+            !phrase.isConfigured -> "${phrase.slotOnPage}\nSet up\nEmpty"
+            phrase.sendsImmediately -> "${phrase.slotOnPage}\n${phrase.displayLabel}\nInsert + send"
+            else -> "${phrase.slotOnPage}\n${phrase.displayLabel}\nInsert only"
         }
         isAllCaps = false
         textSize = 12f
@@ -376,7 +603,128 @@ class MainActivity : Activity() {
             phrase.sendsImmediately -> rounded(SEND, ACCENT_DARK, 14)
             else -> rounded(INSERT, WARM, 14)
         }
+        contentDescription = if (phrase.isConfigured) {
+            "Page ${phrase.pageIndex + 1}, key ${phrase.slotOnPage}, ${phrase.displayLabel}. Tap to edit; long press and drag to swap."
+        } else {
+            "Page ${phrase.pageIndex + 1}, key ${phrase.slotOnPage}, empty. Tap to configure or drop another key here."
+        }
         setOnClickListener { showKeyEditor(phrase) }
+        if (phrase.isConfigured) {
+            setOnLongClickListener { view -> startEditorDrag(view, phrase.position) }
+        }
+        setOnDragListener { view, event -> handleEditorDrag(view, phrase, event) }
+    }
+
+    private fun startEditorDrag(view: View, fromPosition: Int): Boolean {
+        val dragState = EditorDragState(fromPosition = fromPosition, sourceView = view)
+        val started = view.startDragAndDrop(
+            ClipData.newPlainText("TapDeck key", ""),
+            View.DragShadowBuilder(view),
+            dragState,
+            0,
+        )
+        if (started) {
+            view.alpha = DRAG_SOURCE_ALPHA
+            view.scaleX = DRAG_SOURCE_SCALE
+            view.scaleY = DRAG_SOURCE_SCALE
+        }
+        return started
+    }
+
+    private fun handleEditorDrag(target: View, targetKey: PhraseKey, event: DragEvent): Boolean {
+        val state = event.localState as? EditorDragState ?: return false
+        val isDifferentTarget = state.fromPosition != targetKey.position
+        return when (event.action) {
+            DragEvent.ACTION_DRAG_STARTED -> state.fromPosition in 0 until PhraseConfig.KEY_COUNT
+            DragEvent.ACTION_DRAG_ENTERED -> {
+                if (isDifferentTarget) showEditorDropTarget(target)
+                true
+            }
+            DragEvent.ACTION_DRAG_LOCATION -> {
+                autoScrollDuringEditorDrag(target, event)
+                true
+            }
+            DragEvent.ACTION_DRAG_EXITED -> {
+                restoreEditorKeyVisual(target)
+                true
+            }
+            DragEvent.ACTION_DROP -> {
+                restoreEditorKeyVisual(target)
+                if (isDifferentTarget) {
+                    state.toPosition = targetKey.position
+                    target.announceForAccessibility(
+                        "Swap key ${(state.fromPosition % PhraseConfig.KEYS_PER_PAGE) + 1} with key ${targetKey.slotOnPage}",
+                    )
+                }
+                true
+            }
+            DragEvent.ACTION_DRAG_ENDED -> {
+                restoreEditorKeyVisual(target)
+                restoreEditorKeyVisual(state.sourceView)
+                if (!state.completed) {
+                    state.completed = true
+                    val toPosition = state.toPosition
+                    if (toPosition != null && toPosition != state.fromPosition) {
+                        screenContent.post {
+                            swapEditorKeysImmediately(state.fromPosition, toPosition)
+                        }
+                    }
+                }
+                true
+            }
+            else -> true
+        }
+    }
+
+    private fun showEditorDropTarget(view: View) {
+        view.animate()
+            .alpha(DROP_TARGET_ALPHA)
+            .scaleX(DROP_TARGET_SCALE)
+            .scaleY(DROP_TARGET_SCALE)
+            .setDuration(DRAG_ANIMATION_DURATION_MS)
+            .start()
+    }
+
+    private fun restoreEditorKeyVisual(view: View) {
+        view.animate().cancel()
+        view.alpha = 1f
+        view.scaleX = 1f
+        view.scaleY = 1f
+    }
+
+    private fun autoScrollDuringEditorDrag(target: View, event: DragEvent) {
+        if (!::contentScroll.isInitialized) return
+        val targetLocation = IntArray(2)
+        val scrollLocation = IntArray(2)
+        target.getLocationOnScreen(targetLocation)
+        contentScroll.getLocationOnScreen(scrollLocation)
+        val dragY = targetLocation[1] + event.y.toInt()
+        val topEdge = scrollLocation[1] + dp(DRAG_SCROLL_EDGE_DP)
+        val bottomEdge = scrollLocation[1] + contentScroll.height - dp(DRAG_SCROLL_EDGE_DP)
+        when {
+            dragY < topEdge && contentScroll.canScrollVertically(-1) -> {
+                contentScroll.scrollBy(0, -dp(DRAG_SCROLL_STEP_DP))
+            }
+            dragY > bottomEdge && contentScroll.canScrollVertically(1) -> {
+                contentScroll.scrollBy(0, dp(DRAG_SCROLL_STEP_DP))
+            }
+        }
+    }
+
+    private fun swapEditorKeysImmediately(firstPosition: Int, secondPosition: Int) {
+        val swapped = latestConfig.swap(firstPosition, secondPosition)
+        persistConfigImmediately(swapped)
+        screenContent.announceForAccessibility(
+            "Page ${editorPage + 1} keys ${(firstPosition % PhraseConfig.KEYS_PER_PAGE) + 1} and ${(secondPosition % PhraseConfig.KEYS_PER_PAGE) + 1} swapped",
+        )
+    }
+
+    private fun persistConfigImmediately(config: PhraseConfig) {
+        val normalized = config.normalized()
+        if (normalized == latestConfig) return
+        latestConfig = normalized
+        renderCurrentTab()
+        repository.saveConfig(normalized)
     }
 
     private fun showKeyEditor(phrase: PhraseKey) {
@@ -420,7 +768,7 @@ class MainActivity : Activity() {
         })
 
         val dialog = AlertDialog.Builder(this)
-            .setTitle("Key ${phrase.position + 1}")
+            .setTitle("Page ${phrase.pageIndex + 1} · Key ${phrase.slotOnPage}")
             .setView(layout)
             .setNegativeButton("Cancel", null)
             .setNeutralButton("Clear", null)
@@ -438,12 +786,14 @@ class MainActivity : Activity() {
                         PhraseAction.INSERT
                     },
                 )
-                repository.updateKey(updated)
                 dialog.dismiss()
+                persistConfigImmediately(latestConfig.update(updated))
             }
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                repository.updateKey(PhraseConfig.emptyKey(phrase.position))
                 dialog.dismiss()
+                persistConfigImmediately(
+                    latestConfig.update(PhraseConfig.emptyKey(phrase.position)),
+                )
             }
         }
         dialog.show()
@@ -458,7 +808,7 @@ class MainActivity : Activity() {
         )
         addInfoCard(
             "Local phrases",
-            "Your 20 keys are stored in this app's private local storage. Android cloud backup is disabled for the app.",
+            "Your 40 keys are stored in this app's private local storage. Android cloud backup is disabled for the app.",
             ACCENT,
         )
         addInfoCard(
@@ -503,7 +853,7 @@ class MainActivity : Activity() {
 
     private fun addFooter() {
         screenContent.addView(TextView(this).apply {
-            text = "TapDeck Lite 1.0.5  •  20 keys  •  Offline"
+            text = "TapDeck Lite ${BuildConfig.VERSION_NAME}  •  40 keys  •  Offline"
             setTextColor(color("#657582"))
             textSize = 11f
             gravity = Gravity.CENTER
@@ -598,6 +948,13 @@ class MainActivity : Activity() {
         PRIVACY("Privacy"),
     }
 
+    private data class EditorDragState(
+        val fromPosition: Int,
+        val sourceView: View,
+        var toPosition: Int? = null,
+        var completed: Boolean = false,
+    )
+
     private data class KeyboardStatus(
         val enabled: Boolean,
         val selected: Boolean,
@@ -615,5 +972,13 @@ class MainActivity : Activity() {
         private const val WARM = "#F4B860"
         private const val MUTED = "#9DAEBC"
         private const val TEXT = "#C2CDD6"
+        private const val TOP_SYSTEM_BAR_GAP_DP = 12
+        private const val DRAG_SOURCE_ALPHA = 0.46f
+        private const val DRAG_SOURCE_SCALE = 0.96f
+        private const val DROP_TARGET_ALPHA = 0.62f
+        private const val DROP_TARGET_SCALE = 0.94f
+        private const val DRAG_ANIMATION_DURATION_MS = 90L
+        private const val DRAG_SCROLL_EDGE_DP = 72
+        private const val DRAG_SCROLL_STEP_DP = 18
     }
 }

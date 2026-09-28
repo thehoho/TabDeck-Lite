@@ -1,7 +1,7 @@
 package app.tapdeck.keyboard.lite.keyboard
 
 import android.annotation.SuppressLint
-import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -11,10 +11,10 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
-import android.view.DragEvent
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -23,10 +23,60 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.GridLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import app.tapdeck.keyboard.lite.MainActivity
 import app.tapdeck.keyboard.lite.data.PhraseRepository
 import app.tapdeck.keyboard.lite.model.PhraseConfig
 import app.tapdeck.keyboard.lite.model.PhraseKey
+
+private class PageSwipeScrollView(context: Context) : ScrollView(context) {
+    var pageSwipeEnabled: Boolean = false
+    var swipeThresholdPx: Int = 0
+    var onPageSwipe: ((Int) -> Unit)? = null
+
+    private var downX = 0f
+    private var downY = 0f
+    private var pagingGesture = false
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+        if (!pageSwipeEnabled) return super.onInterceptTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+                pagingGesture = false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val horizontal = kotlin.math.abs(event.x - downX)
+                val vertical = kotlin.math.abs(event.y - downY)
+                if (horizontal >= swipeThresholdPx && horizontal > vertical * 1.25f) {
+                    pagingGesture = true
+                    return true
+                }
+            }
+            MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_UP -> pagingGesture = false
+        }
+        return super.onInterceptTouchEvent(event)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!pageSwipeEnabled || !pagingGesture) return super.onTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_UP -> {
+                val direction = if (event.x < downX) 1 else -1
+                pagingGesture = false
+                onPageSwipe?.invoke(direction)
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                pagingGesture = false
+                return true
+            }
+        }
+        return true
+    }
+}
 
 @SuppressLint("SetTextI18n")
 class TapDeckKeyboardService : InputMethodService() {
@@ -35,9 +85,12 @@ class TapDeckKeyboardService : InputMethodService() {
     private var subscription: PhraseRepository.Subscription? = null
     private var latestConfig = PhraseConfig.empty()
     private var keyGrid: GridLayout? = null
+    private var keyScroll: PageSwipeScrollView? = null
+    private var utilityRow: LinearLayout? = null
     private var inputRoot: LinearLayout? = null
     private var inputIsActive = false
     private var pendingSend: Runnable? = null
+    private var activePage = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -45,7 +98,7 @@ class TapDeckKeyboardService : InputMethodService() {
         subscription = repository.observe { config ->
             mainHandler.post {
                 latestConfig = config
-                renderKeys()
+                renderKeyboard()
             }
         }
     }
@@ -60,25 +113,38 @@ class TapDeckKeyboardService : InputMethodService() {
         inputRoot = root
 
         keyGrid = GridLayout(this).apply {
-            columnCount = KeyboardLayoutSpec.PHRASE_COLUMNS
-            rowCount = KeyboardLayoutSpec.PHRASE_ROWS
             alignmentMode = GridLayout.ALIGN_BOUNDS
             useDefaultMargins = false
         }
+        keyScroll = PageSwipeScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = true
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            swipeThresholdPx = dp(PAGE_SWIPE_THRESHOLD_DP)
+            onPageSwipe = { direction -> switchPageBySwipe(direction) }
+            addView(
+                keyGrid,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
         root.addView(
-            keyGrid,
+            keyScroll,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dp(KeyboardLayoutSpec.PHRASE_VIEWPORT_HEIGHT_DP),
             ),
         )
+        utilityRow = createUtilityRow()
         root.addView(
-            createUtilityRow(),
+            utilityRow,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(KeyboardLayoutSpec.UTILITY_ROW_HEIGHT_DP)).apply {
                 topMargin = dp(KeyboardLayoutSpec.UTILITY_ROW_GAP_DP)
             },
         )
-        renderKeys()
+        renderKeyboard()
         return root
     }
 
@@ -121,12 +187,54 @@ class TapDeckKeyboardService : InputMethodService() {
         root.requestApplyInsets()
     }
 
+    private fun renderKeyboard() {
+        val swipeEnabled = repository.isPageSwipeEnabled()
+        val pageTwoConfigured = latestConfig.isPageConfigured(1)
+        if (!swipeEnabled && !pageTwoConfigured) activePage = 0
+        keyScroll?.pageSwipeEnabled = swipeEnabled
+        renderKeys()
+        renderUtilityRow()
+    }
+
     private fun renderKeys() {
         val grid = keyGrid ?: return
+        val layout = repository.getDeckLayout()
+        val visibleKeys = latestConfig.keysForPage(activePage).filter { phrase ->
+            !layout.configuredOnly || phrase.isConfigured
+        }
+        val columns = layout.keysPerRow
+        val rows = KeyboardLayoutSpec.rowCount(visibleKeys.size, columns)
+        val keyHeight = KeyboardLayoutSpec.keyHeightDp(visibleKeys.size, columns)
         grid.removeAllViews()
-        latestConfig.normalized().keys.forEach { phrase ->
-            val row = KeyboardLayoutSpec.rowFor(phrase.position)
-            val column = KeyboardLayoutSpec.columnFor(phrase.position)
+        grid.columnCount = columns
+        grid.rowCount = rows
+        grid.layoutParams = (grid.layoutParams ?: ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )).apply {
+            height = dp(KeyboardLayoutSpec.contentHeightDp(visibleKeys.size, columns))
+        }
+        if (visibleKeys.isEmpty()) {
+            grid.addView(
+                TextView(this).apply {
+                    text = "No configured keys on Page ${activePage + 1}\nOpen SET to add one"
+                    gravity = Gravity.CENTER
+                    setTextColor(color(MUTED))
+                    textSize = 13f
+                },
+                GridLayout.LayoutParams(
+                    GridLayout.spec(0, 1f),
+                    GridLayout.spec(0, columns, 1f),
+                ).apply {
+                    width = 0
+                    height = dp(KeyboardLayoutSpec.PHRASE_VIEWPORT_HEIGHT_DP)
+                },
+            )
+            return
+        }
+        visibleKeys.forEachIndexed { visiblePosition, phrase ->
+            val row = KeyboardLayoutSpec.rowFor(visiblePosition, columns)
+            val column = KeyboardLayoutSpec.columnFor(visiblePosition, columns)
             grid.addView(
                 createPhraseButton(phrase),
                 GridLayout.LayoutParams(
@@ -134,8 +242,13 @@ class TapDeckKeyboardService : InputMethodService() {
                     GridLayout.spec(column, 1f),
                 ).apply {
                     width = 0
-                    height = dp(KeyboardLayoutSpec.PHRASE_KEY_HEIGHT_DP)
-                    setMargins(dp(2), dp(2), dp(2), dp(2))
+                    height = dp(keyHeight)
+                    setMargins(
+                        dp(KeyboardLayoutSpec.PHRASE_KEY_MARGIN_DP),
+                        dp(KeyboardLayoutSpec.PHRASE_KEY_MARGIN_DP),
+                        dp(KeyboardLayoutSpec.PHRASE_KEY_MARGIN_DP),
+                        dp(KeyboardLayoutSpec.PHRASE_KEY_MARGIN_DP),
+                    )
                 },
             )
         }
@@ -144,14 +257,14 @@ class TapDeckKeyboardService : InputMethodService() {
     private fun createPhraseButton(phrase: PhraseKey): Button = Button(this).apply {
         val configured = phrase.isConfigured
         text = if (configured) {
-            "${phrase.position + 1}\n${phrase.displayLabel}"
+            "${phrase.slotOnPage}\n${phrase.displayLabel}"
         } else {
-            "${phrase.position + 1}\nEmpty"
+            "${phrase.slotOnPage}\nEmpty"
         }
         contentDescription = when {
-            !configured -> "Key ${phrase.position + 1}, empty"
-            phrase.sendsImmediately -> "Key ${phrase.position + 1}, ${phrase.displayLabel}, insert and send; long press and drag to reorder"
-            else -> "Key ${phrase.position + 1}, ${phrase.displayLabel}, insert only; long press and drag to reorder"
+            !configured -> "Page ${phrase.pageIndex + 1}, key ${phrase.slotOnPage}, empty"
+            phrase.sendsImmediately -> "Page ${phrase.pageIndex + 1}, key ${phrase.slotOnPage}, ${phrase.displayLabel}, insert and send"
+            else -> "Page ${phrase.pageIndex + 1}, key ${phrase.slotOnPage}, ${phrase.displayLabel}, insert only"
         }
         isAllCaps = false
         textSize = 10.5f
@@ -172,101 +285,91 @@ class TapDeckKeyboardService : InputMethodService() {
         isHapticFeedbackEnabled = repository.isKeyVibrationEnabled()
         alpha = if (configured) 1f else EMPTY_KEY_ALPHA
         setOnClickListener { runPhrase(phrase) }
-        if (configured) {
-            setOnLongClickListener { view ->
-                startPhraseDrag(view, phrase.position)
-                true
-            }
-        }
-        setOnDragListener { view, event ->
-            handlePhraseDrag(view, phrase, event)
-        }
     }
 
-    private fun startPhraseDrag(view: View, fromPosition: Int): Boolean {
-        if (pendingSend != null) return false
-        val dragData = ClipData.newPlainText("TapDeck key", "")
-        return view.startDragAndDrop(
-            dragData,
-            View.DragShadowBuilder(view),
-            PhraseDragState(fromPosition),
-            0,
-        )
-    }
-
-    private fun handlePhraseDrag(target: View, targetKey: PhraseKey, event: DragEvent): Boolean {
-        val state = event.localState as? PhraseDragState ?: return false
-        val isDifferentTarget = state.fromPosition != targetKey.position
-        return when (event.action) {
-            DragEvent.ACTION_DRAG_STARTED -> state.fromPosition in 0 until PhraseConfig.KEY_COUNT
-            DragEvent.ACTION_DRAG_ENTERED -> {
-                if (isDifferentTarget) {
-                    target.alpha = DROP_TARGET_ALPHA
-                    target.scaleX = DROP_TARGET_SCALE
-                    target.scaleY = DROP_TARGET_SCALE
-                }
-                true
-            }
-            DragEvent.ACTION_DRAG_EXITED -> {
-                restorePhraseKeyVisual(target, targetKey)
-                true
-            }
-            DragEvent.ACTION_DROP -> {
-                restorePhraseKeyVisual(target, targetKey)
-                if (isDifferentTarget) {
-                    performKeyboardHaptic(target)
-                    target.announceForAccessibility("Moved to key ${targetKey.position + 1}")
-                    repository.moveKey(state.fromPosition, targetKey.position)
-                }
-                true
-            }
-            DragEvent.ACTION_DRAG_ENDED -> {
-                restorePhraseKeyVisual(target, targetKey)
-                true
-            }
-            else -> true
-        }
-    }
-
-    private fun restorePhraseKeyVisual(view: View, phrase: PhraseKey) {
-        view.alpha = if (phrase.isConfigured) 1f else EMPTY_KEY_ALPHA
-        view.scaleX = 1f
-        view.scaleY = 1f
-    }
-
-    private fun createUtilityRow(): View = LinearLayout(this).apply {
+    private fun createUtilityRow(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
-        addUtilityButton(
-            label = "ABC",
-            description = "Switch back to the previous typing keyboard",
-            style = UtilityStyle.ACCENT,
-            textSize = 11f,
-        ) { switchBackToTypingKeyboard() }
-        addUtilityButton(
-            label = "⌫",
-            description = "Backspace",
-            style = UtilityStyle.NORMAL,
-            textSize = 21f,
-        ) { deleteOneCharacter() }
-        addUtilityButton(
-            label = "SET",
-            description = "Open TapDeck Lite settings",
-            style = UtilityStyle.NORMAL,
-            textSize = 10f,
-        ) { openSettings() }
-        addUtilityButton(
-            label = "⌨",
-            description = "Show all enabled keyboards",
-            style = UtilityStyle.NORMAL,
-            textSize = 19f,
-        ) { showKeyboardPicker() }
-        addUtilityButton(
-            label = "↵",
-            description = "Enter",
-            style = UtilityStyle.SEND,
-            textSize = 21f,
-        ) { sendRawEnter() }
+    }
+
+    private fun renderUtilityRow() {
+        val row = utilityRow ?: return
+        row.removeAllViews()
+        row.apply {
+        KeyboardLayoutSpec.UTILITY_KEY_ORDER.forEach { key ->
+            when (key) {
+                KeyboardLayoutSpec.UtilityKey.ABC -> addUtilityButton(
+                    label = "ABC",
+                    description = "Switch back to the previous typing keyboard",
+                    style = UtilityStyle.ACCENT,
+                    textSize = 11f,
+                ) { switchBackToTypingKeyboard() }
+                KeyboardLayoutSpec.UtilityKey.SETTINGS -> addUtilityButton(
+                    label = "SET",
+                    description = "Open TapDeck Lite settings",
+                    style = UtilityStyle.NORMAL,
+                    textSize = 10f,
+                ) { openSettings() }
+                KeyboardLayoutSpec.UtilityKey.BACKSPACE -> addUtilityButton(
+                    label = "⌫",
+                    description = "Backspace",
+                    style = UtilityStyle.NORMAL,
+                    textSize = 21f,
+                ) { deleteOneCharacter() }
+                KeyboardLayoutSpec.UtilityKey.KEYBOARD_PICKER -> addUtilityButton(
+                    label = "⌨",
+                    description = "Show all enabled keyboards",
+                    style = UtilityStyle.NORMAL,
+                    textSize = 19f,
+                ) { showKeyboardPicker() }
+                KeyboardLayoutSpec.UtilityKey.ENTER -> {
+                    if (usesPageToggle()) {
+                        addUtilityButton(
+                            label = if (activePage == 0) "P2" else "P1",
+                            description = "Switch to command page ${if (activePage == 0) 2 else 1}",
+                            style = UtilityStyle.SEND,
+                            textSize = 12f,
+                        ) { togglePage() }
+                    } else {
+                        addUtilityButton(
+                            label = "↵",
+                            description = "Enter",
+                            style = UtilityStyle.SEND,
+                            textSize = 21f,
+                        ) { sendRawEnter() }
+                    }
+                }
+            }
+        }
+        }
+    }
+
+    private fun usesPageToggle(): Boolean = KeyboardLayoutSpec.usesPageToggle(
+        pageTwoConfigured = latestConfig.isPageConfigured(1),
+        swipeEnabled = repository.isPageSwipeEnabled(),
+    )
+
+    private fun togglePage() {
+        showPage(1 - activePage)
+    }
+
+    private fun switchPageBySwipe(direction: Int) {
+        if (!repository.isPageSwipeEnabled()) return
+        val targetPage = KeyboardLayoutSpec.pageAfterSwipe(
+            activePage = activePage,
+            direction = direction,
+            pageCount = PhraseConfig.PAGE_COUNT,
+        )
+        showPage(targetPage)
+    }
+
+    private fun showPage(pageIndex: Int) {
+        if (pageIndex !in 0 until PhraseConfig.PAGE_COUNT || pageIndex == activePage) return
+        activePage = pageIndex
+        keyScroll?.scrollTo(0, 0)
+        renderKeys()
+        renderUtilityRow()
+        inputRoot?.announceForAccessibility("Command page ${activePage + 1}")
     }
 
     private fun LinearLayout.addUtilityButton(
@@ -408,6 +511,8 @@ class TapDeckKeyboardService : InputMethodService() {
         cancelPendingSend()
         subscription?.cancel()
         keyGrid = null
+        keyScroll = null
+        utilityRow = null
         inputRoot = null
         super.onDestroy()
     }
@@ -417,8 +522,6 @@ class TapDeckKeyboardService : InputMethodService() {
         NORMAL,
         SEND,
     }
-
-    private data class PhraseDragState(val fromPosition: Int)
 
     companion object {
         private const val BACKGROUND = "#0B1118"
@@ -432,7 +535,6 @@ class TapDeckKeyboardService : InputMethodService() {
         private const val WARM = "#F4B860"
         private const val MUTED = "#9DAEBC"
         private const val EMPTY_KEY_ALPHA = 0.78f
-        private const val DROP_TARGET_ALPHA = 0.58f
-        private const val DROP_TARGET_SCALE = 0.94f
+        private const val PAGE_SWIPE_THRESHOLD_DP = 48
     }
 }

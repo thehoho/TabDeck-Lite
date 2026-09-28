@@ -6,7 +6,7 @@
 
 ## One tap. One command.
 
-TapDeck Lite is a compact Android shortcut keyboard for command-driven Discord chats and bots such as OwO. Save up to 20 commands, label them clearly, then tap one key to insert or immediately send it.
+TapDeck Lite is a compact Android shortcut keyboard for command-driven Discord chats and bots such as OwO. Save up to 40 commands across two pages, label them clearly, then tap one key to insert or immediately send it.
 
 Whether a command is short or long, every saved key keeps it consistent and ready. TapDeck Lite makes repetitive command entry faster, easier, and less error-prone.
 
@@ -20,11 +20,11 @@ The GitHub APK is a non-debuggable release build. It retains the established Git
 
 ## How it works
 
-1. Configure up to 20 command keys inside TapDeck Lite.
+1. Configure up to 40 command keys across Page 1 and Page 2 inside TapDeck Lite.
 2. Choose **Insert only** or **Insert + send** for each key.
 3. Open Discord and focus the message composer.
 4. Tap one key. TapDeck Lite handles only that selected command.
-5. To reorder the deck, long press a configured key and drag it to another slot.
+5. To reorder the deck, open **Keys**, then long press a configured card and drag it onto another slot to swap them.
 6. Use **ABC** to return immediately to your normal typing keyboard.
 
 A key can hold a short command or a longer phrase up to the app's 4,000-character limit.
@@ -44,17 +44,22 @@ TapDeck Lite is a keyboard, so trust matters. This repository makes its privacy 
 
 ## Features
 
-- One deck of exactly 20 configurable command keys.
+- Two pages of 20 configurable command keys, for 40 saved commands total.
 - Per-key **Insert only** or **Insert + send** behavior.
 - One tap inserts or sends the selected command.
 - Discord-tested send sequence: commit the command, wait 250 ms, then issue raw Enter.
 - Compact 5 × 4 command grid.
-- Long press and drag to reorder keys; intervening keys shift without losing configuration.
-- Fifth utility row with **ABC**, Backspace, Settings, Android keyboard picker, and Enter.
+- Optional saved layouts per page: show all slots or configured keys only, with 1–5 keys per row.
+- Automatic P1/P2 utility key when Page 2 contains a command.
+- Optional horizontal page swiping, off by default, which preserves the Enter utility key.
+- Immediate two-slot drag-and-drop swapping in the companion app's **Keys** tab.
+- Command keyboard stays focused on one-tap use, with no accidental drag mode.
+- Fifth utility row with **ABC**, Settings, Backspace, Android keyboard picker, and either Enter or the P1/P2 switch.
 - Setup, Keys, and Privacy tabs in the companion app.
 - Empty first-run deck with no bundled commands.
 - Optional key vibration, off by default.
 - Dynamic clearance above Android gesture and navigation controls.
+- Status-bar-aware spacing at the top of the companion app.
 - Completely offline with no ads, analytics, accounts, tracking, or upgrade prompts.
 
 ## Install and set up
@@ -64,7 +69,7 @@ TapDeck Lite is a keyboard, so trust matters. This repository makes its privacy 
 3. Open TapDeck Lite and use the **Setup** tab.
 4. Tap **Enable keyboard** and enable TapDeck Lite in Android settings.
 5. Tap **Choose keyboard** and select TapDeck Lite.
-6. Open **Keys** and configure any of the 20 keys.
+6. Open **Keys**, choose Page 1 or Page 2, and configure any of the 40 keys.
 7. Open Discord, focus its composer, and tap a configured key.
 
 ## Compatibility

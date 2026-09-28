@@ -17,6 +17,47 @@ class KeyboardLayoutSpecTest {
     }
 
     @Test
+    fun fourConfiguredKeysCanFillOneLargeRow() {
+        assertEquals(1, KeyboardLayoutSpec.rowCount(keyCount = 4, columns = 4))
+        assertEquals(212, KeyboardLayoutSpec.keyHeightDp(keyCount = 4, columns = 4))
+        assertEquals(216, KeyboardLayoutSpec.contentHeightDp(keyCount = 4, columns = 4))
+    }
+
+    @Test
+    fun twentyKeysSupportBothFourByFiveAndFiveByFourGrids() {
+        assertEquals(5, KeyboardLayoutSpec.rowCount(keyCount = 20, columns = 4))
+        assertEquals(4, KeyboardLayoutSpec.rowCount(keyCount = 20, columns = 5))
+    }
+
+    @Test
+    fun threeKeysSupportVerticalAndHorizontalLayouts() {
+        assertEquals(3, KeyboardLayoutSpec.rowCount(keyCount = 3, columns = 1))
+        assertEquals(1, KeyboardLayoutSpec.rowCount(keyCount = 3, columns = 3))
+    }
+
+    @Test
+    fun oneKeyPerRowCreatesScrollableContent() {
+        assertEquals(20, KeyboardLayoutSpec.rowCount(keyCount = 20, columns = 1))
+        assertEquals(50, KeyboardLayoutSpec.keyHeightDp(keyCount = 20, columns = 1))
+        assertEquals(1080, KeyboardLayoutSpec.contentHeightDp(keyCount = 20, columns = 1))
+    }
+
+    @Test
+    fun pageTwoReplacesEnterOnlyWhenSwipeIsOff() {
+        assertTrue(KeyboardLayoutSpec.usesPageToggle(pageTwoConfigured = true, swipeEnabled = false))
+        assertTrue(!KeyboardLayoutSpec.usesPageToggle(pageTwoConfigured = false, swipeEnabled = false))
+        assertTrue(!KeyboardLayoutSpec.usesPageToggle(pageTwoConfigured = true, swipeEnabled = true))
+    }
+
+    @Test
+    fun swipesMoveImmediatelyBetweenPagesWithoutLeavingBounds() {
+        assertEquals(1, KeyboardLayoutSpec.pageAfterSwipe(activePage = 0, direction = 1, pageCount = 2))
+        assertEquals(1, KeyboardLayoutSpec.pageAfterSwipe(activePage = 1, direction = 1, pageCount = 2))
+        assertEquals(0, KeyboardLayoutSpec.pageAfterSwipe(activePage = 1, direction = -1, pageCount = 2))
+        assertEquals(0, KeyboardLayoutSpec.pageAfterSwipe(activePage = 0, direction = -1, pageCount = 2))
+    }
+
+    @Test
     fun keyboardIncludesACompactNavigationSafeArea() {
         assertEquals(310, KeyboardLayoutSpec.TOTAL_HEIGHT_DP)
         assertTrue(KeyboardLayoutSpec.TOTAL_HEIGHT_DP <= 320)
@@ -26,6 +67,20 @@ class KeyboardLayoutSpecTest {
     @Test
     fun utilityRowHasOneControlPerPhraseColumn() {
         assertEquals(KeyboardLayoutSpec.PHRASE_COLUMNS, KeyboardLayoutSpec.UTILITY_KEY_COUNT)
+    }
+
+    @Test
+    fun utilityRowKeepsSettingsAwayFromTheCenterTapTarget() {
+        assertEquals(
+            listOf(
+                KeyboardLayoutSpec.UtilityKey.ABC,
+                KeyboardLayoutSpec.UtilityKey.SETTINGS,
+                KeyboardLayoutSpec.UtilityKey.BACKSPACE,
+                KeyboardLayoutSpec.UtilityKey.KEYBOARD_PICKER,
+                KeyboardLayoutSpec.UtilityKey.ENTER,
+            ),
+            KeyboardLayoutSpec.UTILITY_KEY_ORDER,
+        )
     }
 
     @Test

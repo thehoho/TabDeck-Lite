@@ -27,8 +27,19 @@ class PhraseConfigCodecTest {
     fun malformedJsonReturnsSafeEmptyDeck() {
         val decoded = PhraseConfigCodec.decode("not-json")
 
-        assertEquals(20, decoded.keys.size)
+        assertEquals(40, decoded.keys.size)
         assertTrue(decoded.keys.all { !it.isConfigured })
+    }
+
+    @Test
+    fun oldTwentyKeyStorageExpandsToAnEmptySecondPage() {
+        val raw = """{"keys":[{"position":0,"label":"Old","message":"kept","action":"INSERT"}]}"""
+
+        val decoded = PhraseConfigCodec.decode(raw)
+
+        assertEquals(40, decoded.keys.size)
+        assertEquals("kept", decoded.keys[0].message)
+        assertTrue(decoded.keysForPage(1).all { !it.isConfigured })
     }
 
     @Test
